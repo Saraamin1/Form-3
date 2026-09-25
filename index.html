@@ -6,7 +6,14 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Excavation &amp; Trenching Safety Inspection</title>
 
-<link href="style.css" rel="stylesheet"/></head>
+<link href="style.css" rel="stylesheet"/>
+      <!-- html2pdf.js لملفات PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<!-- docx & FileSaver لتوليد ملفات Word الحقيقية -->
+<script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>  
+</head>
 <body><div class="app-toolbar" id="app-toolbar"><button class="btn btn-pdf" id="savePdfBtn" type="button">Save as PDF</button><button class="btn btn-word" id="saveWordBtn" type="button">Save as Word (.docx)</button><button class="btn btn-clear" id="clearBtn" type="button">Clear Form</button></div>
 <!-- HEADER -->
 <div class="header">
