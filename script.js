@@ -1,563 +1,334 @@
 (function () {
-  'use strict';
-
-  const STORAGE_KEY = 'excavation-trenching-safety-v3';
-
-  function formatDate(value) {
-    if (!value) return '';
-    const parts = value.split('-');
-    if (parts.length === 3) return `${parts[1]}/${parts[2]}/${parts[0]}`;
-    return value;
-  }
-
-  function formatDateTime(value) {
-    if (!value) return '';
-    const [date, time] = value.split('T');
-    if (!date) return value;
-    return `${formatDate(date)}${time ? ` ${time}` : ''}`;
-  }
-
-  function displayValue(input) {
-    if (!input) return '';
-    if (input.type === 'date') return formatDate(input.value);
-    if (input.type === 'datetime-local') return formatDateTime(input.value);
-    return input.value || '';
-  }
-
-  function saveState() {
-    const data = {
-      inputs: Array.from(document.querySelectorAll('input.info-input, .atmospheric-grid input, .signature-box input')).map(input => input.value),
-      notes: document.querySelector('.notes-area')?.value || '',
-      status: document.querySelector('.status-item.selected')?.textContent.trim() || '',
-      checklist: Array.from(document.querySelectorAll('.checklist-item')).map(item =>
-        item.querySelector('.checkbox-option.selected .checkbox-option-label')?.textContent.trim() || ''
-      )
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  }
-
-  function loadState() {
-    try {
-      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-      if (!data) return;
-
-      const inputs = document.querySelectorAll('input.info-input, .atmospheric-grid input, .signature-box input');
-      (data.inputs || []).forEach((value, i) => {
-        if (inputs[i]) inputs[i].value = value;
-      });
-
-      const notes = document.querySelector('.notes-area');
-      if (notes) notes.value = data.notes || '';
-
-      document.querySelectorAll('.status-item').forEach(item => {
-        item.classList.toggle('selected', !!data.status && item.textContent.trim() === data.status);
-      });
-
-      document.querySelectorAll('.checklist-item').forEach((item, i) => {
-        const wanted = data.checklist?.[i] || '';
-        item.querySelectorAll('.checkbox-option').forEach(option => {
-          option.classList.toggle('selected', !!wanted && option.textContent.trim() === wanted);
+    // ================= INTERACTIVE CHECKBOXES =================
+    var statusBoxes = document.querySelectorAll('.status-summary .checkbox-large');
+    statusBoxes.forEach(function (box) {
+        box.addEventListener('click', function () {
+            var wasChecked = box.classList.contains('checked');
+            statusBoxes.forEach(function (b) { b.classList.remove('checked'); });
+            if (!wasChecked) box.classList.add('checked');
         });
-      });
-    } catch (e) {
-      console.warn('Could not load saved form data.', e);
-    }
-  }
-
-  function setupInteractions() {
-    document.querySelectorAll('.status-item').forEach(item => {
-      item.addEventListener('click', () => {
-        document.querySelectorAll('.status-item').forEach(x => x.classList.remove('selected'));
-        item.classList.add('selected');
-        saveState();
-      });
     });
 
-    document.querySelectorAll('.checklist-item').forEach(item => {
-      item.querySelectorAll('.checkbox-option').forEach(option => {
-        option.addEventListener('click', () => {
-          item.querySelectorAll('.checkbox-option').forEach(x => x.classList.remove('selected'));
-          option.classList.add('selected');
-          saveState();
+    document.querySelectorAll('.checkbox-container').forEach(function (container) {
+        var boxes = container.querySelectorAll('.checkbox-small');
+        boxes.forEach(function (box) {
+            box.addEventListener('click', function () {
+                var wasChecked = box.classList.contains('checked');
+                boxes.forEach(function (b) { b.classList.remove('checked'); });
+                if (!wasChecked) box.classList.add('checked');
+            });
         });
-      });
     });
 
-    document.querySelectorAll('input, textarea').forEach(el => {
-      el.addEventListener('input', saveState);
-      el.addEventListener('change', saveState);
-    });
-  }
-
-  function addAppStyles() {
-    const style = document.createElement('style');
-    style.textContent = `
-      #app-toolbar{position:sticky;top:0;z-index:9999;display:flex;gap:10px;justify-content:center;align-items:center;padding:12px;background:#fff;border-bottom:1px solid #ddd;margin:-36pt -36pt 20pt;box-shadow:0 2px 8px rgba(0,0,0,.08)}
-      .btn{border:0;border-radius:6px;padding:10px 16px;font-weight:700;cursor:pointer;color:#fff;font-family:inherit}
-      .btn-pdf{background:#dc143c}.btn-word{background:#1e3a5f}.btn-clear{background:#6c757d}
-      .status-item,.checkbox-option{cursor:pointer}
-      .status-item.selected,.checkbox-option.selected{outline:3px solid #1e3a5f;outline-offset:2px;border-radius:4px}
-      .checkbox-option.selected .checkbox-small,.status-item.selected .checkbox-large{background:#1e3a5f!important;color:#fff!important;border-color:#1e3a5f!important}
-      input[type=date],input[type=datetime-local]{min-height:30px;cursor:pointer}
-      @media(max-width:600px){#app-toolbar{position:static;flex-wrap:wrap;margin:-36pt -36pt 16pt}.btn{flex:1;min-width:120px}.header-info{grid-template-columns:1fr!important}.status-summary{grid-template-columns:1fr!important}}
-      @media print{#app-toolbar{display:none!important}.selected{outline:none!important}}
-    `;
-    document.head.appendChild(style);
-  }
-
-  function buildPrintableClone() {
-    const clone = document.body.cloneNode(true);
-    clone.querySelector('#app-toolbar')?.remove();
-
-    clone.querySelectorAll('input').forEach((input, index) => {
-      const original = document.querySelectorAll('input')[index];
-      const span = document.createElement('span');
-      span.textContent = displayValue(original) || ' ';
-      span.style.cssText = 'display:inline-block;min-width:100px;border-bottom:1px solid #343A40;padding:3px 2px;';
-      input.replaceWith(span);
+    // ================= RESET FORM =================
+    document.getElementById('resetBtn').addEventListener('click', function () {
+        if (!confirm('Clear all entries and selections?')) return;
+        document.querySelectorAll('#printable input, #printable textarea').forEach(function (el) { el.value = ''; });
+        document.querySelectorAll('#printable .checked').forEach(function (el) { el.classList.remove('checked'); });
     });
 
-    clone.querySelectorAll('textarea').forEach((textarea, index) => {
-      const original = document.querySelectorAll('textarea')[index];
-      const div = document.createElement('div');
-      div.textContent = original?.value || ' ';
-      div.style.cssText = 'min-height:70px;border:1px solid #aaa;padding:8px;white-space:pre-wrap;';
-      textarea.replaceWith(div);
-    });
+    // ================= CUSTOM DATE / TIME PICKER =================
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
 
-    clone.querySelectorAll('.checkbox-option').forEach(option => {
-      const box = option.querySelector('.checkbox-small');
-      if (box) box.textContent = option.classList.contains('selected') ? '✓' : '□';
-    });
-
-    clone.querySelectorAll('.status-item').forEach(item => {
-      const box = item.querySelector('.checkbox-large');
-      if (box) box.textContent = item.classList.contains('selected') ? '✓' : '□';
-    });
-
-    return clone;
-  }
-
-  async function savePDF() {
-    if (!window.html2pdf) {
-      alert('PDF library is not loaded. Check your internet connection and reload the page.');
-      return;
+    function closeAllPickers() {
+        document.querySelectorAll('.picker-popover').forEach(function (p) { p.remove(); });
     }
 
-    saveState();
+    function positionPopover(pop, input) {
+        var rect = input.getBoundingClientRect();
+        pop.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+        pop.style.left = (rect.left + window.scrollX) + 'px';
+    }
 
-    const clone = buildPrintableClone();
+    function attachDatePicker(input) {
+        input.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var alreadyOpen = input._open;
+            closeAllPickers();
+            input._open = false;
+            if (alreadyOpen) return;
+            input._open = true;
 
-    const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'background:#fff;width:100%;padding:18px;box-sizing:border-box;';
-    wrapper.appendChild(clone);
-    document.body.appendChild(wrapper);
+            var today = new Date();
+            var parsed = input.value ? new Date(input.value) : null;
+            var base = parsed && !isNaN(parsed) ? parsed : today;
+            var viewYear = base.getFullYear();
+            var viewMonth = base.getMonth();
 
-    try {
-      await html2pdf().set({
-        margin: 0.35,
-        filename: 'excavation-trenching-safety-inspection.pdf',
-        image: {
-          type: 'jpeg',
-          quality: 0.98
-        },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff'
-        },
-        jsPDF: {
-          unit: 'in',
-          format: 'letter',
-          orientation: 'portrait'
+            var pop = document.createElement('div');
+            pop.className = 'picker-popover';
+            document.body.appendChild(pop);
+
+            function render() {
+                var monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                var firstDay = new Date(viewYear, viewMonth, 1).getDay();
+                var daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+                var html = '<div class="picker-header">' +
+                    '<button type="button" class="picker-nav" data-nav="-1">&#8249;</button>' +
+                    '<span>' + monthNames[viewMonth] + ' ' + viewYear + '</span>' +
+                    '<button type="button" class="picker-nav" data-nav="1">&#8250;</button>' +
+                    '</div><div class="picker-grid">';
+                ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(function (d) { html += '<span class="picker-dow">' + d + '</span>'; });
+                for (var i = 0; i < firstDay; i++) html += '<span></span>';
+                for (var d = 1; d <= daysInMonth; d++) html += '<span class="picker-day" data-day="' + d + '">' + d + '</span>';
+                html += '</div>';
+                pop.innerHTML = html;
+
+                pop.querySelectorAll('.picker-nav').forEach(function (btn) {
+                    btn.addEventListener('click', function (ev) {
+                        ev.stopPropagation();
+                        viewMonth += parseInt(btn.getAttribute('data-nav'), 10);
+                        if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+                        if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+                        render();
+                    });
+                });
+
+                pop.querySelectorAll('.picker-day').forEach(function (dayEl) {
+                    dayEl.addEventListener('click', function (ev) {
+                        ev.stopPropagation();
+                        var day = parseInt(dayEl.getAttribute('data-day'), 10);
+                        input.value = pad(viewMonth + 1) + '/' + pad(day) + '/' + viewYear;
+                        pop.remove();
+                        input._open = false;
+                    });
+                });
+            }
+
+            render();
+            positionPopover(pop, input);
+        });
+    }
+
+    function attachTimePicker(input) {
+        input.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var alreadyOpen = input._open;
+            closeAllPickers();
+            input._open = false;
+            if (alreadyOpen) return;
+            input._open = true;
+
+            var pop = document.createElement('div');
+            pop.className = 'picker-popover picker-time';
+            document.body.appendChild(pop);
+
+            var hours = [];
+            for (var h = 1; h <= 12; h++) hours.push(h);
+            var minutes = [];
+            for (var m = 0; m < 60; m += 5) minutes.push(m);
+
+            var html = '<div class="picker-time-row">' +
+                '<select class="picker-hour">' + hours.map(function (h) { return '<option value="' + h + '">' + h + '</option>'; }).join('') + '</select>' +
+                '<span>:</span>' +
+                '<select class="picker-minute">' + minutes.map(function (m) { return '<option value="' + m + '">' + pad(m) + '</option>'; }).join('') + '</select>' +
+                '<select class="picker-ampm"><option value="AM">AM</option><option value="PM">PM</option></select>' +
+                '</div><button type="button" class="picker-set">Set Time</button>';
+            pop.innerHTML = html;
+
+            pop.querySelector('.picker-set').addEventListener('click', function (ev) {
+                ev.stopPropagation();
+                var hh = pop.querySelector('.picker-hour').value;
+                var mm = pop.querySelector('.picker-minute').value;
+                var ap = pop.querySelector('.picker-ampm').value;
+                input.value = hh + ':' + pad(parseInt(mm, 10)) + ' ' + ap;
+                pop.remove();
+                input._open = false;
+            });
+
+            positionPopover(pop, input);
+        });
+    }
+
+    document.addEventListener('click', function () { closeAllPickers(); });
+
+    document.querySelectorAll('input[data-picker="date"]').forEach(attachDatePicker);
+    document.querySelectorAll('input[data-picker="time"]').forEach(attachTimePicker);
+
+    // ================= Push live values into attributes so exports see them =================
+    function syncValuesForExport(root) {
+        root.querySelectorAll('input[type="text"]').forEach(function (input) { input.setAttribute('value', input.value); });
+        root.querySelectorAll('textarea').forEach(function (ta) { ta.textContent = ta.value; });
+    }
+
+    // ================= PDF EXPORT =================
+    document.getElementById('downloadPdfBtn').addEventListener('click', function () {
+        var btn = this;
+        btn.disabled = true;
+        btn.textContent = 'Preparing PDF…';
+
+        closeAllPickers();
+
+        var el = document.getElementById('printable');
+        syncValuesForExport(el);
+
+        var opt = {
+            margin: 0.4,
+            filename: 'Excavation-Trenching-Safety-Inspection.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, windowWidth: el.scrollWidth },
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        };
+
+        html2pdf().set(opt).from(el).save().then(function () {
+            btn.disabled = false;
+            btn.textContent = '⬇ Download PDF';
+        }).catch(function (err) {
+            console.error(err);
+            btn.disabled = false;
+            btn.textContent = '⬇ Download PDF';
+            alert('PDF generation failed: ' + err.message);
+        });
+    });
+
+    // ================= REAL WORD (.docx) EXPORT =================
+    document.getElementById('downloadWordBtn').addEventListener('click', function () {
+        var btn = this;
+        btn.disabled = true;
+        var originalLabel = btn.textContent;
+        btn.textContent = 'Preparing Word file…';
+
+        closeAllPickers();
+
+        try {
+            // Check if docx library is loaded
+            if (typeof docx === 'undefined') {
+                throw new Error('docx library is not loaded. Please check your HTML head script tags.');
+            }
+
+            var Document = docx.Document;
+            var Packer = docx.Packer;
+            var Paragraph = docx.Paragraph;
+            var TextRun = docx.TextRun;
+            var HeadingLevel = docx.HeadingLevel;
+            var Table = docx.Table;
+            var TableRow = docx.TableRow;
+            var TableCell = docx.TableCell;
+            var WidthType = docx.WidthType;
+
+            var children = [];
+
+            // Title
+            var h1El = document.querySelector('#printable h1');
+            children.push(new Paragraph({
+                text: h1El ? h1El.textContent.trim() : "EXCAVATION & TRENCHING SAFETY INSPECTION",
+                heading: HeadingLevel.HEADING_1,
+                spacing: { after: 200 }
+            }));
+
+            // Extract Info Fields
+            document.querySelectorAll('#printable .info-field').forEach(function (f) {
+                var labEl = f.querySelector('.info-label');
+                var inpEl = f.querySelector('input');
+                var labelText = labEl ? labEl.textContent.trim() : '';
+                var valText = inpEl && inpEl.value.trim() !== '' ? inpEl.value.trim() : '______________________';
+
+                children.push(new Paragraph({
+                    children: [
+                        new TextRun({ text: labelText + ": ", bold: true }),
+                        new TextRun(valText)
+                    ],
+                    spacing: { after: 100 }
+                }));
+            });
+
+            // Status Summary
+            var chosenStatus = '(not selected)';
+            document.querySelectorAll('#printable .status-summary .status-item').forEach(function (item) {
+                var box = item.querySelector('.checkbox-large');
+                var lab = item.querySelector('.checkbox-label');
+                if (box && box.classList.contains('checked') && lab) chosenStatus = lab.textContent.trim();
+            });
+            children.push(new Paragraph({
+                children: [
+                    new TextRun({ text: "Overall Status: ", bold: true }),
+                    new TextRun(chosenStatus)
+                ],
+                spacing: { before: 150, after: 200 }
+            }));
+
+            // Checklist Sections
+            document.querySelectorAll('#printable h2').forEach(function (h2) {
+                children.push(new Paragraph({
+                    text: h2.textContent.trim(),
+                    heading: HeadingLevel.HEADING_2,
+                    spacing: { before: 200, after: 100 }
+                }));
+
+                var checklistSection = h2.nextElementSibling;
+                if (checklistSection && checklistSection.classList.contains('checklist-section')) {
+                    var tableRows = [];
+                    checklistSection.querySelectorAll('.checklist-item').forEach(function (item) {
+                        var chosenOpt = '-';
+                        item.querySelectorAll('.checkbox-option').forEach(function (opt) {
+                            var box = opt.querySelector('.checkbox-small');
+                            var lab = opt.querySelector('.checkbox-option-label');
+                            if (box && box.classList.contains('checked') && lab) chosenOpt = lab.textContent.trim();
+                        });
+                        var textEl = item.querySelector('.item-text');
+                        var textStr = textEl ? textEl.textContent.trim() : '';
+
+                        tableRows.push(new TableRow({
+                            children: [
+                                new TableCell({
+                                    width: { size: 20, type: WidthType.PERCENTAGE },
+                                    children: [new Paragraph({ text: chosenOpt, bold: true })]
+                                }),
+                                new TableCell({
+                                    width: { size: 80, type: WidthType.PERCENTAGE },
+                                    children: [new Paragraph(textStr)]
+                                })
+                            ]
+                        }));
+                    });
+
+                    if (tableRows.length > 0) {
+                        children.push(new Table({
+                            width: { size: 100, type: WidthType.PERCENTAGE },
+                            rows: tableRows
+                        }));
+                    }
+                }
+            });
+
+            // Notes Section
+            var notesTa = document.querySelector('#printable .notes-section textarea');
+            if (notesTa) {
+                children.push(new Paragraph({
+                    text: "Notes & Corrective Actions:",
+                    heading: HeadingLevel.HEADING_2,
+                    spacing: { before: 200, after: 100 }
+                }));
+                children.push(new Paragraph({
+                    text: notesTa.value.trim() !== '' ? notesTa.value : 'None',
+                    spacing: { after: 200 }
+                }));
+            }
+
+            // Create Document
+            var doc = new Document({
+                sections: [{
+                    properties: {},
+                    children: children
+                }]
+            });
+
+            // Save File using FileSaver.js / Packer
+            Packer.toBlob(doc).then(function (blob) {
+                saveAs(blob, "Excavation-Trenching-Safety-Inspection.docx");
+                btn.disabled = false;
+                btn.textContent = originalLabel;
+            }).catch(function (err) {
+                throw err;
+            });
+
+        } catch (err) {
+            console.error(err);
+            alert('Word file generation failed: ' + err.message);
+            btn.disabled = false;
+            btn.textContent = originalLabel;
         }
-      }).from(wrapper).save();
-    } finally {
-      wrapper.remove();
-    }
-  }
-
-  function textCell(text, bold) {
-    const { TableCell, Paragraph, TextRun } = window.docx;
-
-    return new TableCell({
-      children: [
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: String(text || ''),
-              bold: !!bold,
-              size: 20
-            })
-          ]
-        })
-      ]
     });
-  }
-
-  function makeDocx() {
-    if (!window.docx) {
-      throw new Error('DOCX library is not loaded');
-    }
-
-    const {
-      Document,
-      Packer,
-      Paragraph,
-      TextRun,
-      Table,
-      TableRow,
-      HeadingLevel,
-      AlignmentType,
-      WidthType
-    } = window.docx;
-
-    const children = [];
-
-    children.push(
-      new Paragraph({
-        text: 'Excavation & Trenching Safety Inspection',
-        heading: HeadingLevel.TITLE,
-        alignment: AlignmentType.CENTER
-      })
-    );
-
-    const headerInputs = Array.from(
-      document.querySelectorAll('.header-info input')
-    );
-
-    const headerLabels = Array.from(
-      document.querySelectorAll('.header-info .info-label')
-    ).map(x => x.textContent.trim());
-
-    children.push(
-      new Table({
-        width: {
-          size: 100,
-          type: WidthType.PERCENTAGE
-        },
-        rows: headerLabels.map((label, i) =>
-          new TableRow({
-            children: [
-              textCell(label, true),
-              textCell(displayValue(headerInputs[i]))
-            ]
-          })
-        )
-      })
-    );
-
-    children.push(new Paragraph({ text: '' }));
-
-    const os = document.querySelector('.info-box')?.innerText.trim() || '';
-
-    if (os) {
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: os,
-              bold: true,
-              size: 20
-            })
-          ]
-        })
-      );
-    }
-
-    const status =
-      document.querySelector('.status-item.selected')?.textContent.trim() ||
-      'Not selected';
-
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: 'Overall Status: ',
-            bold: true
-          }),
-          new TextRun({
-            text: status
-          })
-        ]
-      })
-    );
-
-    const alert =
-      document.querySelector('.alert-box')?.innerText.trim();
-
-    if (alert) {
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: alert,
-              bold: true
-            })
-          ]
-        })
-      );
-    }
-
-    const sections =
-      Array.from(document.querySelectorAll('.checklist-section'));
-
-    const headings =
-      Array.from(document.querySelectorAll('h2'));
-
-    sections.forEach((section, idx) => {
-      children.push(
-        new Paragraph({
-          text:
-            headings[idx]?.textContent.trim() ||
-            `Section ${idx + 1}`,
-          heading: HeadingLevel.HEADING_2
-        })
-      );
-
-      const rows = [
-        new TableRow({
-          children: [
-            textCell('Inspection Item', true),
-            textCell('Status', true)
-          ]
-        })
-      ];
-
-      section.querySelectorAll('.checklist-item').forEach(item => {
-        const question =
-          item.querySelector('.item-text')?.textContent.trim() ||
-          '';
-
-        const selected =
-          item.querySelector(
-            '.checkbox-option.selected .checkbox-option-label'
-          )?.textContent.trim() ||
-          'Not selected';
-
-        rows.push(
-          new TableRow({
-            children: [
-              textCell(question),
-              textCell(selected)
-            ]
-          })
-        );
-      });
-
-      children.push(
-        new Table({
-          width: {
-            size: 100,
-            type: WidthType.PERCENTAGE
-          },
-          rows
-        })
-      );
-
-      children.push(new Paragraph({ text: '' }));
-    });
-
-    const atm =
-      document.querySelector('.atmospheric-grid');
-
-    if (atm) {
-      children.push(
-        new Paragraph({
-          text: 'Atmospheric Readings',
-          heading: HeadingLevel.HEADING_2
-        })
-      );
-
-      const labels =
-        Array.from(
-          atm.querySelectorAll('.info-label')
-        ).map(x => x.textContent.trim());
-
-      const vals =
-        Array.from(
-          atm.querySelectorAll('input')
-        ).map(x => x.value);
-
-      children.push(
-        new Table({
-          width: {
-            size: 100,
-            type: WidthType.PERCENTAGE
-          },
-          rows: labels.map((label, i) =>
-            new TableRow({
-              children: [
-                textCell(label, true),
-                textCell(vals[i] || '')
-              ]
-            })
-          )
-        })
-      );
-    }
-
-    const notes =
-      document.querySelector('.notes-area')?.value || '';
-
-    children.push(
-      new Paragraph({
-        text: 'Hazards Identified & Corrective Actions Taken',
-        heading: HeadingLevel.HEADING_2
-      })
-    );
-
-    children.push(
-      new Paragraph({
-        text: notes || ' '
-      })
-    );
-
-    children.push(
-      new Paragraph({
-        text: 'Signatures',
-        heading: HeadingLevel.HEADING_2
-      })
-    );
-
-    document.querySelectorAll('.signature-box').forEach(box => {
-      const label =
-        box.querySelector('.signature-label')?.textContent.trim() ||
-        '';
-
-      const labels =
-        Array.from(
-          box.querySelectorAll('.info-label')
-        ).map(x => x.textContent.trim());
-
-      const vals =
-        Array.from(
-          box.querySelectorAll('input')
-        ).map(x => displayValue(x));
-
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: label,
-              bold: true
-            })
-          ]
-        })
-      );
-
-      labels.forEach((l, i) => {
-        children.push(
-          new Paragraph({
-            text: `${l} ${vals[i] || ''}`
-          })
-        );
-      });
-
-      children.push(
-        new Paragraph({
-          text: ''
-        })
-      );
-    });
-
-    const doc = new Document({
-      sections: [
-        {
-          properties: {},
-          children
-        }
-      ]
-    });
-
-    return Packer.toBlob(doc);
-  }
-
-  async function saveWord() {
-    if (!window.docx) {
-      alert(
-        'Word library is not loaded. Check your internet connection and reload the page.'
-      );
-      return;
-    }
-
-    try {
-      saveState();
-
-      const blob = await makeDocx();
-
-      const url = URL.createObjectURL(blob);
-
-      const a = document.createElement('a');
-
-      a.href = url;
-      a.download =
-        'excavation-trenching-safety-inspection.docx';
-
-      document.body.appendChild(a);
-
-      a.click();
-
-      a.remove();
-
-      setTimeout(() => {
-        URL.revokeObjectURL(url);
-      }, 1000);
-
-    } catch (e) {
-      console.error(e);
-
-      alert(
-        'تعذر إنشاء ملف Word. تأكدي من وجود اتصال بالإنترنت ثم أعيدي تحميل الصفحة.'
-      );
-    }
-  }
-
-  function clearForm() {
-    if (!confirm('Clear all entered data and selections?')) {
-      return;
-    }
-
-    document.querySelectorAll('input').forEach(input => {
-      if (
-        input.type === 'checkbox' ||
-        input.type === 'radio'
-      ) {
-        input.checked = false;
-      } else {
-        input.value = '';
-      }
-    });
-
-    document
-      .querySelectorAll('textarea')
-      .forEach(textarea => textarea.value = '');
-
-    document
-      .querySelectorAll('.selected')
-      .forEach(x => x.classList.remove('selected'));
-
-    localStorage.removeItem(STORAGE_KEY);
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    addAppStyles();
-
-    setupInteractions();
-
-    loadState();
-
-    document
-      .getElementById('savePdfBtn')
-      ?.addEventListener('click', savePDF);
-
-    document
-      .getElementById('saveWordBtn')
-      ?.addEventListener('click', saveWord);
-
-    document
-      .getElementById('clearBtn')
-      ?.addEventListener('click', clearForm);
-  });
-
 })();
